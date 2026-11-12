@@ -24,8 +24,8 @@ set -euo pipefail
 
 echo "==================================================================="
 echo " SwiftPay — Portfolio environment bootstrap"
-echo " Student : Emmanuel Onyeama"
-echo " Matric  : 2026/A/MIT/0876"
+echo " Student : Success Adenikinju"
+echo " Matric  : 2026/A/MIT/0529"
 echo "==================================================================="
 
 # ---------------------------------------------------------------------------
