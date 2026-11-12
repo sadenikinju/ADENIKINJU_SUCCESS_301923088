@@ -1,0 +1,23 @@
+PART 1 - THE BUG: read the balance, check it, then write it back (no lock)
+     session A: read 10000.00, wrote 2000.00
+     session B: read 10000.00, wrote 2000.00
+  >>> BUG: two withdrawals of 8000 succeeded from a 10000 account; balance is now 2000.00 (should have been rejected).
+PART 2 - FIX 1: SELECT ... FOR UPDATE locks the account row
+     session A: read 10000.00, wrote 2000.00  (COMMIT)
+     session B: read 2000.00, insufficient funds  (ROLLBACK)
+  >>> FIXED: B waited for A, then saw the new balance. Final balance 2000.00.
+PART 3 - FIX 2: SERIALIZABLE, no lock at all
+     session A: COMMIT
+     session B: ERROR [40001]: could not serialize access due to concurrent update
+  >>> FIXED: PostgreSQL cancelled one transaction (40001). Final balance 2000.00.
+PART 4 - READ COMMITTED vs REPEATABLE READ (reading a balance twice)
+     READ COMMITTED: first read 10000.00, second read 9500.00  <- changed inside ONE transaction
+     REPEATABLE READ: first read 10000.00, second read 10000.00  <- same snapshot
+PART 5 - DEADLOCK: two transfers lock two accounts in opposite order
+     session A: ERROR [40P01]: deadlock detected
+     session B: COMMIT
+  >>> PostgreSQL detected the cycle after deadlock_timeout (1s) and cancelled one session (40P01).
+     session A: COMMIT
+     session B: COMMIT
+  >>> Same two accounts, locked in account_id order: B simply waits its turn. No deadlock.
+(demo accounts removed)
