@@ -1,0 +1,38 @@
+Collections created with JSON-schema validators.
+[
+  'audit_logs',
+  'accounts',
+  'transaction_types',
+  'beneficiaries',
+  'transactions',
+  'customers'
+]
+Warning: NumberLong: specifying a number as argument is deprecated and may lead to loss of precision, pass a string instead
+Warning: NumberLong: specifying a number as argument is deprecated and may lead to loss of precision, pass a string instead
+Warning: NumberLong: specifying a number as argument is deprecated and may lead to loss of precision, pass a string instead
+Warning: NumberLong: specifying a number as argument is deprecated and may lead to loss of precision, pass a string instead
+Warning: NumberLong: specifying a number as argument is deprecated and may lead to loss of precision, pass a string instead
+Seed data inserted.
+customers:    4
+accounts:     5
+transactions: 3
+Indexes created.
+
+--- Q1. Account statement (account SP0001110001, Sep 2026) ---
+
+--- Q2. Top 3 customers by transaction volume ---
+
+--- Q3. Daily totals by transaction type ---
+
+--- Q4. Suspicious transactions: amount > 100000 OR off-hours ---
+
+--- Q5. Lookup by reference number ---
+
+--- Q6. Customer with embedded accounts summary (single query) ---
+=== P4 bulk data + index demo ===
+transactions in collection : 40003
+BEFORE (no usable index) plan: COLLSCAN | totalDocsExamined: 40003 | nReturned: 13 | executionTimeMillis: 12
+AFTER  (compound index)  plan: FETCH / IXSCAN | totalDocsExamined: 13 | nReturned: 13 | executionTimeMillis: 1
+Stage    BEFORE: COLLSCAN | AFTER: FETCH / IXSCAN
+Docs     BEFORE: 40003 | AFTER: 13
+Time ms  BEFORE: 12 | AFTER: 1
