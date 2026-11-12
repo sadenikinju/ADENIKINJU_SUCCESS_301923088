@@ -1,0 +1,31 @@
+psql:01_schema.sql:16: NOTICE:  table "notification" does not exist, skipping
+psql:01_schema.sql:16: NOTICE:  table "card" does not exist, skipping
+psql:01_schema.sql:16: NOTICE:  table "beneficiary" does not exist, skipping
+psql:01_schema.sql:16: NOTICE:  table "transaction_log" does not exist, skipping
+psql:01_schema.sql:16: NOTICE:  table "transaction" does not exist, skipping
+psql:01_schema.sql:16: NOTICE:  table "account" does not exist, skipping
+psql:01_schema.sql:16: NOTICE:  table "customer" does not exist, skipping
+psql:01_schema.sql:16: NOTICE:  table "branch" does not exist, skipping
+psql:01_schema.sql:16: NOTICE:  table "transaction_type" does not exist, skipping
+ account_number | balance | expected 
+----------------+---------+----------
+(0 rows)
+
+ setseed 
+---------
+ 
+(1 row)
+
+     tbl      | count  
+--------------+--------
+ customers    |   5010
+ accounts     |   5012
+ transactions | 300036
+(3 rows)
+
+=== P1 row counts ===
+ customers | accounts | transactions | cards 
+-----------+----------+--------------+-------
+      5010 |     5012 |       300036 |     5
+(1 row)
+
