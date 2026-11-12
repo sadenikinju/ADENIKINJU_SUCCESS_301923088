@@ -1,0 +1,98 @@
+===================================================================
+ Portfolio 5 — primary + streaming read replica
+   Primary : port 5432  (/var/lib/postgresql/16/main)
+   Replica : port 5433  (/var/lib/postgresql/16/replica)
+===================================================================
+[repl] configuring primary postgresql.conf for replication
+[repl] prepending replication trust lines to top of pg_hba.conf
+[repl] restarting primary to apply wal_level + pg_hba changes
+[repl] creating replication role 'repl' and slot 'replica1'
+DO
+ pg_create_physical_replication_slot 
+-------------------------------------
+ (replica1,)
+(1 row)
+
+[repl] running pg_basebackup (this can take ~30 s for the swiftpay DB)
+waiting for checkpoint
+129545/129545 kB (100%), 0/1 tablespace
+129545/129545 kB (100%), 1/1 tablespace
+[repl] writing the replica's own postgresql.conf overrides
+[repl] starting replica on port 5433
+waiting for server to start.... done
+server started
+
+=== Verification ===
+[repl] primary (5432) — SELECT pg_is_in_recovery();
+ primary_is_in_recovery 
+------------------------
+ f
+(1 row)
+
+
+[repl] replica (5433) — SELECT pg_is_in_recovery();
+ replica_is_in_recovery 
+------------------------
+ t
+(1 row)
+
+
+[repl] primary — replication status:
+ application_name |   state   | sync_state |  sent_lsn  | write_lsn  | flush_lsn  | replay_lsn 
+------------------+-----------+------------+------------+------------+------------+------------
+ walreceiver      | streaming | async      | 0/1C001CF8 | 0/1C000000 | 0/1C000000 | 0/1C000000
+(1 row)
+
+
+[repl] DONE.
+[repl] Replication is now streaming: writes on the primary (port 5432)
+[repl] are replayed onto the replica (port 5433) within milliseconds.
+
+[repl] To connect to the replica for read-only queries:
+    sudo runuser -u postgres -- psql -p 5433 -d swiftpay
+=== Replica tests ===
+You are now connected to database "swiftpay" as user "postgres" via socket in "/var/run/postgresql" at port "5433".
+ server  | port | in_recovery 
+---------+------+-------------
+ REPLICA | 5433 | t
+(1 row)
+
+--- T1. Attempt an INSERT on the REPLICA (port 5433). Must be rejected ---
+psql:03_replica_tests.sql:7: ERROR:  cannot execute INSERT in a read-only transaction
+You are now connected to database "swiftpay" as user "postgres" via socket in "/var/run/postgresql" at port "5432".
+ server  | port | in_recovery 
+---------+------+-------------
+ PRIMARY | 5432 | f
+(1 row)
+
+--- T2. Insert a marker row on the PRIMARY (5432), then read it on the REPLICA (5433) ---
+INSERT 0 1
+ pg_sleep 
+----------
+ 
+(1 row)
+
+ application_name |   state   | sync_state |  sent_lsn  | replay_lsn | bytes_behind 
+------------------+-----------+------------+------------+------------+--------------
+ walreceiver      | streaming | async      | 0/1C003FD0 | 0/1C003FD0 |            0
+(1 row)
+
+You are now connected to database "swiftpay" as user "postgres" via socket in "/var/run/postgresql" at port "5433".
+   branch_name    | branch_code 
+------------------+-------------
+ P5-REPLICA-PROOF | RP0001
+(1 row)
+
+You are now connected to database "swiftpay" as user "postgres" via socket in "/var/run/postgresql" at port "5432".
+DELETE 1
+ pg_sleep 
+----------
+ 
+(1 row)
+
+You are now connected to database "swiftpay" as user "postgres" via socket in "/var/run/postgresql" at port "5433".
+ marker_rows_left_on_replica 
+-----------------------------
+                           0
+(1 row)
+

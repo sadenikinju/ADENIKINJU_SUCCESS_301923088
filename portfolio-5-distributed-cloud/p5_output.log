@@ -1,0 +1,155 @@
+BEGIN
+ALTER TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+INSERT 0 300038
+psql:01_distributed_setup.sql:87: NOTICE:  drop cascades to constraint transaction_log_transaction_id_fkey on table transaction_log
+DROP TABLE
+ALTER TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+COMMIT
+                                                                                               QUERY PLAN                                                                                                
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Bitmap Heap Scan on transaction_2026_09 transaction  (cost=4.46..20.06 rows=4 width=666) (actual time=10.490..29.657 rows=140781 loops=1)
+   Recheck Cond: ((initiated_at >= '2026-09-01 00:00:00+01'::timestamp with time zone) AND (initiated_at < '2026-10-01 00:00:00+01'::timestamp with time zone) AND ((status)::text = 'COMPLETED'::text))
+   Heap Blocks: exact=2555
+   Buffers: shared hit=2555 read=387
+   ->  Bitmap Index Scan on transaction_2026_09_initiated_at_idx  (cost=0.00..4.46 rows=4 width=0) (actual time=10.082..10.083 rows=140781 loops=1)
+         Index Cond: ((initiated_at >= '2026-09-01 00:00:00+01'::timestamp with time zone) AND (initiated_at < '2026-10-01 00:00:00+01'::timestamp with time zone))
+         Buffers: shared read=387
+ Planning:
+   Buffers: shared hit=235 read=8 dirtied=1
+ Planning Time: 3.369 ms
+ Execution Time: 37.797 ms
+(11 rows)
+
+psql:01_distributed_setup.sql:130: WARNING:  wal_level is insufficient to publish logical changes
+HINT:  Set wal_level to "logical" before creating subscriptions.
+CREATE PUBLICATION
+  oid  |        pubname        | pubowner | puballtables | pubinsert | pubupdate | pubdelete | pubtruncate | pubviaroot 
+-------+-----------------------+----------+--------------+-----------+-----------+-----------+-------------+------------
+ 17432 | swiftpay_customer_pub |    16386 | f            | t         | t         | t         | t           | f
+(1 row)
+
+ pid | usesysid | usename | application_name | client_addr | client_hostname | client_port | backend_start | backend_xmin | state | sent_lsn | write_lsn | flush_lsn | replay_lsn | write_lag | flush_lag | replay_lag | sync_priority | sync_state | reply_time 
+-----+----------+---------+------------------+-------------+-----------------+-------------+---------------+--------------+-------+----------+-----------+-----------+------------+-----------+-----------+------------+---------------+------------+------------
+(0 rows)
+
+SET
+  balance  
+-----------
+ 355000.00
+(1 row)
+
+ txn_count_at_pit 
+------------------
+           165141
+(1 row)
+
+=== P5 streaming replica ===
+===================================================================
+ Portfolio 5 — primary + streaming read replica
+   Primary : port 5432  (/var/lib/postgresql/16/main)
+   Replica : port 5433  (/var/lib/postgresql/16/replica)
+===================================================================
+[repl] configuring primary postgresql.conf for replication
+[repl] prepending replication trust lines to top of pg_hba.conf
+[repl] restarting primary to apply wal_level + pg_hba changes
+[repl] creating replication role 'repl' and slot 'replica1'
+DO
+ pg_create_physical_replication_slot 
+-------------------------------------
+ (replica1,)
+(1 row)
+
+[repl] running pg_basebackup (this can take ~30 s for the swiftpay DB)
+waiting for checkpoint
+129545/129545 kB (100%), 0/1 tablespace
+129545/129545 kB (100%), 1/1 tablespace
+[repl] writing the replica's own postgresql.conf overrides
+[repl] starting replica on port 5433
+waiting for server to start.... done
+server started
+
+=== Verification ===
+[repl] primary (5432) — SELECT pg_is_in_recovery();
+ primary_is_in_recovery 
+------------------------
+ f
+(1 row)
+
+
+[repl] replica (5433) — SELECT pg_is_in_recovery();
+ replica_is_in_recovery 
+------------------------
+ t
+(1 row)
+
+
+[repl] primary — replication status:
+ application_name |   state   | sync_state |  sent_lsn  | write_lsn  | flush_lsn  | replay_lsn 
+------------------+-----------+------------+------------+------------+------------+------------
+ walreceiver      | streaming | async      | 0/1C001CF8 | 0/1C000000 | 0/1C000000 | 0/1C000000
+(1 row)
+
+
+[repl] DONE.
+[repl] Replication is now streaming: writes on the primary (port 5432)
+[repl] are replayed onto the replica (port 5433) within milliseconds.
+
+[repl] To connect to the replica for read-only queries:
+    sudo runuser -u postgres -- psql -p 5433 -d swiftpay
+=== Replica tests ===
+You are now connected to database "swiftpay" as user "postgres" via socket in "/var/run/postgresql" at port "5433".
+ server  | port | in_recovery 
+---------+------+-------------
+ REPLICA | 5433 | t
+(1 row)
+
+--- T1. Attempt an INSERT on the REPLICA (port 5433). Must be rejected ---
+psql:03_replica_tests.sql:7: ERROR:  cannot execute INSERT in a read-only transaction
+You are now connected to database "swiftpay" as user "postgres" via socket in "/var/run/postgresql" at port "5432".
+ server  | port | in_recovery 
+---------+------+-------------
+ PRIMARY | 5432 | f
+(1 row)
+
+--- T2. Insert a marker row on the PRIMARY (5432), then read it on the REPLICA (5433) ---
+INSERT 0 1
+ pg_sleep 
+----------
+ 
+(1 row)
+
+ application_name |   state   | sync_state |  sent_lsn  | replay_lsn | bytes_behind 
+------------------+-----------+------------+------------+------------+--------------
+ walreceiver      | streaming | async      | 0/1C003FD0 | 0/1C003FD0 |            0
+(1 row)
+
+You are now connected to database "swiftpay" as user "postgres" via socket in "/var/run/postgresql" at port "5433".
+   branch_name    | branch_code 
+------------------+-------------
+ P5-REPLICA-PROOF | RP0001
+(1 row)
+
+You are now connected to database "swiftpay" as user "postgres" via socket in "/var/run/postgresql" at port "5432".
+DELETE 1
+ pg_sleep 
+----------
+ 
+(1 row)
+
+You are now connected to database "swiftpay" as user "postgres" via socket in "/var/run/postgresql" at port "5433".
+ marker_rows_left_on_replica 
+-----------------------------
+                           0
+(1 row)
+
